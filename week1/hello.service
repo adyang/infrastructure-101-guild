@@ -1,0 +1,10 @@
+[Unit]
+Description=Hello World Spring Boot
+
+[Service]
+ExecStart=/usr/bin/java -jar /vagrant/hello-spring-boot-0.1.0.jar --spring.config.location=file:///vagrant/config/test.application.properties
+User=vagrant
+Group=vagrant
+
+[Install]
+WantedBy=multi-user.target

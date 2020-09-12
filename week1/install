@@ -1,8 +1,11 @@
 #!/bin/bash
 
-sudo apt-get update
-sudo apt-get -y install default-jre
+sudo apt update
+sudo apt install -y default-jre
 java -version
+
+sudo adduser --system --group hello
+
 sudo cp /vagrant/hello.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable hello

@@ -1,10 +1,14 @@
 [Unit]
 Description=Hello World Spring Boot
+StartLimitIntervalSec=30s
+StartLimitBurst=5
 
 [Service]
 ExecStart=/usr/bin/java -jar /vagrant/hello-spring-boot-0.1.0.jar --spring.config.location=file:///vagrant/config/test.application.properties
 User=hello
 Group=hello
+Restart=always
+RestartSec=3s
 
 [Install]
 WantedBy=multi-user.target

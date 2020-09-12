@@ -1,0 +1,25 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: ensure java runtime is present
+      apt:
+        name: default-jre
+        update_cache: true
+
+    - name: ensure hello service user exists
+      user:
+        name: hello
+        system: true
+        shell: /usr/sbin/nologin
+
+    - name: configure hello service systemd unit
+      copy:
+        src: "{{ playbook_dir }}/hello.service"
+        dest: /etc/systemd/system/
+
+    - name: ensure hello service is always restarted
+      systemd:
+        name: hello
+        state: restarted
+        daemon_reload: true

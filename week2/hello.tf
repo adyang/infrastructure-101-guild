@@ -38,7 +38,7 @@ resource "aws_security_group" "hello" {
 
 resource "aws_key_pair" "hello" {
   key_name   = "hello-key"
-  public_key = file("../.ssh/infra101.pub")
+  public_key = file(var.ssh_public_key_path)
 }
 
 resource "aws_instance" "hello" {

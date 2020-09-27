@@ -9,6 +9,7 @@ adduser --system --group hello
 sudo --user=hello curl --location --output /home/hello/hello-spring-boot-0.1.0.jar https://github.com/adyang/infrastructure-101-guild/raw/master/week1/hello-spring-boot-0.1.0.jar
 cat <<EOF | sudo --user=hello tee /home/hello/application.properties >/dev/null
 server.port=5000
+app.greeting=Greetings from ${HOSTNAME},
 EOF
 
 # configure systemd

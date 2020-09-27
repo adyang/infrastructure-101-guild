@@ -24,21 +24,29 @@ data "aws_availability_zones" "available" {
 }
 
 resource "aws_subnet" "public" {
+  count = var.public_subnets_total
+
   vpc_id                  = aws_vpc.default.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
+  cidr_block              = cidrsubnet(aws_vpc.default.cidr_block, var.subnet_prefix_newbits, count.index)
+  availability_zone       = element(data.aws_availability_zones.available.names, count.index)
   map_public_ip_on_launch = true
   tags = {
-    Name = "hello-public"
+    Name = "hello-public-${count.index}"
   }
 }
 
+locals {
+  private_subnet_offset = pow(2, var.subnet_prefix_newbits) / 2
+}
+
 resource "aws_subnet" "private" {
+  count = var.private_subnets_total
+
   vpc_id                  = aws_vpc.default.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
+  cidr_block              = cidrsubnet(aws_vpc.default.cidr_block, var.subnet_prefix_newbits, local.private_subnet_offset + count.index)
+  availability_zone       = element(data.aws_availability_zones.available.names, count.index)
   tags = {
-    Name = "hello-private"
+    Name = "hello-private-${count.index}"
   }
 }
 
@@ -56,35 +64,43 @@ resource "aws_route" "internet_access" {
 }
 
 resource "aws_eip" "nat" {
+  for_each = toset(data.aws_availability_zones.available.names)
+
   vpc  = true
   tags = {
-    Name = "nat-eip"
+    Name = "nat-eip-${each.value}"
   }
 }
 
 resource "aws_nat_gateway" "default" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public.id
+  for_each = toset(data.aws_availability_zones.available.names)
+
+  allocation_id = aws_eip.nat[each.value].id
+  subnet_id     = [for subnet in aws_subnet.public : subnet.id if subnet.availability_zone == each.value][0]
   depends_on    = [aws_internet_gateway.default]
   tags = {
-    Name = "hello-nat"
+    Name = "hello-nat-${each.value}"
   }
 }
 
 resource "aws_route_table" "private" {
+  for_each = toset(data.aws_availability_zones.available.names)
+
   vpc_id = aws_vpc.default.id
   route {
     cidr_block = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.default.id
+    nat_gateway_id = aws_nat_gateway.default[each.value].id
   }
   tags = {
-    Name = "hello-private-rt"
+    Name = "hello-private-rt-${each.value}"
   }
 }
 
 resource "aws_route_table_association" "private" {
-  route_table_id = aws_route_table.private.id
-  subnet_id      = aws_subnet.private.id
+  count = var.private_subnets_total
+
+  route_table_id = aws_route_table.private[aws_subnet.private[count.index].availability_zone].id
+  subnet_id      = aws_subnet.private[count.index].id
 }
 
 resource "aws_security_group" "elb" {
@@ -153,9 +169,8 @@ resource "aws_security_group" "bastion" {
 
 resource "aws_elb" "hello" {
   name            = "hello-elb"
-  subnets         = [aws_subnet.public.id]
+  subnets         = [for subnet in aws_subnet.public : subnet.id]
   security_groups = [aws_security_group.elb.id]
-  instances       = [aws_instance.hello.id]
 
   listener {
     instance_port     = 5000
@@ -170,16 +185,38 @@ resource "aws_key_pair" "hello" {
   public_key = file(var.ssh_public_key_path)
 }
 
-resource "aws_instance" "hello" {
-  ami                    = var.aws_debian_buster_amis[var.aws_region]
+resource "aws_launch_configuration" "hello" {
+  name_prefix            = "hello-"
+  image_id               = var.aws_debian_buster_amis[var.aws_region]
   instance_type          = "t2.micro"
   key_name               = aws_key_pair.hello.key_name
-  vpc_security_group_ids = [aws_security_group.hello.id]
-  subnet_id              = aws_subnet.private.id
+  security_groups        = [aws_security_group.hello.id]
   user_data              = file("./install")
-  depends_on             = [aws_route_table_association.private]
-  tags = {
-    Name = "hello"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_autoscaling_group" "hello" {
+  name                  = "hello-asg"
+  launch_configuration  = aws_launch_configuration.hello.name
+  min_size              = 3
+  max_size              = 6
+  vpc_zone_identifier   = [for subnet in aws_subnet.private : subnet.id]
+  load_balancers        = [aws_elb.hello.name]
+  wait_for_elb_capacity = 3
+  # Ensure NAT Gateway and routing are up for internet access during instance user-data bootstrap
+  depends_on            = [aws_route_table_association.private]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+  
+  tag {
+    key = "Name"
+    value = "hello-asg"
+    propagate_at_launch = true
   }
 }
 
@@ -188,7 +225,7 @@ resource "aws_instance" "bastion" {
   instance_type          = "t2.micro"
   key_name               = aws_key_pair.hello.key_name
   vpc_security_group_ids = [aws_security_group.bastion.id]
-  subnet_id              = aws_subnet.public.id
+  subnet_id              = aws_subnet.public[0].id
   tags = {
     Name = "hello-bastion"
   }

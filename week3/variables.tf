@@ -16,3 +16,16 @@ variable "aws_debian_buster_amis" {
     ap-southeast-2 = "ami-08638c72b63ff353b"
   }
 }
+
+variable "subnet_prefix_newbits" {
+  description = "Additional prefix bits to add to vpc prefix to form the subnet. This determines size of each subnet, e.g. 2 ^ (32 - vpc_prefix - subnet_prefix_newbits). Also used to derive private subnet offset."
+  default = 8
+}
+
+variable "public_subnets_total" {
+  default = 3
+}
+
+variable "private_subnets_total" {
+  default = 3
+}

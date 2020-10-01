@@ -1,0 +1,20 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cat
+  labels:
+    app: cat
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: cat
+  template:
+    metadata:
+      labels:
+        app: cat
+    spec:
+      containers:
+        - name: cat-application
+          image: janesee3/cat-application:1

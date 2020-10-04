@@ -1,0 +1,14 @@
+[
+  {
+    "name": "hello",
+    "image": "traducefrighten/hello:1.0",
+    "cpu": 256,
+    "memory": 256,
+    "portMappings": [
+      {
+        "containerPort": 8080,
+        "protocol": "tcp"
+      }
+    ]
+  }
+]

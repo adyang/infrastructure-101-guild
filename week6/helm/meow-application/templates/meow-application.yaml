@@ -1,0 +1,46 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+{{ include "meow-application.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+    spec:
+        containers:
+          - name: {{ .Chart.Name }}
+            image: "{{ .Values.image.repository }}:{{ .Values.image.version }}"
+            env:
+              - name: "DO_YOU_LIKE_CATS"
+                value: "YES"
+              - name: "CATS_URL"
+                value: "http://cat-application/cats"
+            ports:
+              - name: http
+                containerPort: 8080
+            readinessProbe:
+              httpGet:
+                path: /meow
+                port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+{{ include "meow-application.labels" . | indent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+  ports:
+    - port: 80
+      targetPort: http

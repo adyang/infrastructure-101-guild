@@ -1,0 +1,15 @@
+#!/bin/bash
+
+kubectl cluster-info \
+  && helm upgrade --install --atomic --timeout 1m ingress-nginx ingress-nginx/ingress-nginx \
+  && helm upgrade --install --atomic --timeout 1m cat-application ./cat-application/ \
+  && helm upgrade --install --atomic --timeout 1m meow-application ./meow-application/ \
+  || exit
+
+lb_url="$(kubectl get services ingress-nginx-controller --output jsonpath='{.status.loadBalancer.ingress[0].hostname}')" || exit
+lb_ip="$(dig "${lb_url}" +short | head -n 1)"; (( PIPESTATUS[0] == 0 )) || exit "${PIPESTATUS[0]}"
+cat <<EOF
+Add the following line to /etc/hosts to test host-based routing:
+
+${lb_ip} cat-application.infra meow-application.infra
+EOF
